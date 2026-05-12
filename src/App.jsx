@@ -9,7 +9,7 @@ const SUPABASE_ANON_KEY =
   "sb_publishable_E52vNK8neRHNNuU-7kwBvQ_d3v7hxPV";
 
 const ALLOWED_DOMAIN = "vambe.ai";
-const ADMIN_EMAILS = ["amparo@vambe.ai"];
+const ADMIN_EMAILS = ["amparo.johnson@vambe.ai"];
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
