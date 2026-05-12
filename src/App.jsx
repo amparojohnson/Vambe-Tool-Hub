@@ -29,12 +29,16 @@ const INITIAL_TOOLS = [
     repo_url: "https://github.com/TomasHANNA00/Project1",
     stakeholder:
       "OBs L que quieren llevar un proceso estructurado y claro de cara al cliente",
+    data_source: "Supabase",
+    resources: [
+      { label: "Sheet de seguimiento", url: "https://docs.google.com/spreadsheets" },
+    ],
   },
 ];
 
 const STATUS_LABELS = { active: "Activa", review: "En revisión", deprecated: "Deprecada" };
 const STATUS_COLORS = { active: "#22c55e", review: "#f59e0b", deprecated: "#ef4444" };
-const CATEGORIES = ["Todos", "Onboarding", "Analytics", "Operaciones", "Producto", "Ventas"];
+const CATEGORIES = ["Todos", "Onboarding", "Analytics", "Operaciones", "Producto", "Ventas", "Flujos"];
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────
 const canSeeRepo = (tool, userEmail) =>
@@ -199,9 +203,48 @@ function ToolCard({ tool, onOpen, onAccess, isAdmin, onEdit, userEmail }) {
       </div>
 
       {/* Description */}
-      <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.65, flexGrow: 1 }}>
+      <div style={{ fontSize: 13, color: "#9ca3af", lineHeight: 1.65, flexGrow: 1, overflowWrap: "break-word", wordBreak: "break-word" }}>
         {tool.description}
       </div>
+
+      {/* Data source */}
+      {tool.data_source && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 600 }}>Datos:</span>
+          <span style={{ fontSize: 11, color: "#a78bfa", background: "#6d28d914", border: "1px solid #6d28d930", borderRadius: 5, padding: "1px 7px", fontWeight: 600 }}>
+            {tool.data_source}
+          </span>
+        </div>
+      )}
+
+      {/* Resources */}
+      {tool.resources?.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {tool.resources.map((r, i) => (
+            <a
+              key={i}
+              href={r.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: 11,
+                color: "#34d399",
+                background: "#059669" + "12",
+                border: "1px solid #05966928",
+                borderRadius: 6,
+                padding: "2px 8px",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                transition: "background .15s",
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = "#05966922")}
+              onMouseLeave={e => (e.currentTarget.style.background = "#05966912")}
+            >
+              ↗ {r.label}
+            </a>
+          ))}
+        </div>
+      )}
 
       {/* Owner */}
       <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
@@ -371,6 +414,56 @@ function Modal({ tool, onClose, accessLogs, userEmail }) {
           ))}
         </div>
 
+        {/* Data source */}
+        {tool.data_source && (
+          <div style={{ background: "#1e1e2e", borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>
+              Origen de datos
+            </div>
+            <span style={{ fontSize: 13, color: "#a78bfa", fontWeight: 600 }}>{tool.data_source}</span>
+          </div>
+        )}
+
+        {/* Resources */}
+        {tool.resources?.length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <div style={{ fontSize: 11, color: "#6b7280", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 700 }}>
+              Recursos
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {tool.resources.map((r, i) => (
+                <a
+                  key={i}
+                  href={r.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    color: "#34d399",
+                    background: "#05966910",
+                    border: "1px solid #05966928",
+                    borderRadius: 8,
+                    padding: "9px 14px",
+                    textDecoration: "none",
+                    transition: "background .15s",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#05966920")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "#05966910")}
+                >
+                  <span style={{ fontSize: 14 }}>↗</span>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{r.label}</div>
+                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 1, wordBreak: "break-all" }}>{r.url}</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
         {showRepo && tool.repo_url && (
           <a
             href={tool.repo_url}
@@ -447,11 +540,25 @@ const EMPTY_FORM = {
   status: "active",
   repo_url: "",
   stakeholder: "",
+  data_source: "",
+  resources: [],
 };
+
+const TOOL_CATEGORIES = ["Onboarding", "Analytics", "Operaciones", "Producto", "Ventas", "Flujos"];
 
 function EditModal({ tool, onClose, onSave }) {
   const [form, setForm] = useState(tool ?? EMPTY_FORM);
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+
+  const addResource = () =>
+    setForm(p => ({ ...p, resources: [...(p.resources ?? []), { label: "", url: "" }] }));
+  const removeResource = (i) =>
+    setForm(p => ({ ...p, resources: p.resources.filter((_, idx) => idx !== i) }));
+  const setResource = (i, field, value) =>
+    setForm(p => ({
+      ...p,
+      resources: p.resources.map((r, idx) => idx === i ? { ...r, [field]: value } : r),
+    }));
 
   const inputStyle = {
     width: "100%",
@@ -518,6 +625,55 @@ function EditModal({ tool, onClose, onSave }) {
           />
         </div>
 
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 5 }}>Origen de datos</div>
+          <input
+            type="text"
+            placeholder="ej: Supabase, Google Sheets, HubSpot, n8n..."
+            value={form.data_source ?? ""}
+            onChange={e => set("data_source", e.target.value)}
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Resources */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 12, color: "#9ca3af" }}>Recursos / Links</div>
+            <button
+              onClick={addResource}
+              style={{ background: "#1e1e2e", color: "#6366f1", border: "1px solid #6366f130", borderRadius: 6, padding: "3px 10px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}
+            >
+              + Agregar
+            </button>
+          </div>
+          {(form.resources ?? []).length === 0 && (
+            <div style={{ fontSize: 12, color: "#4b5563", fontStyle: "italic" }}>Sin recursos añadidos.</div>
+          )}
+          {(form.resources ?? []).map((r, i) => (
+            <div key={i} style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
+              <input
+                placeholder="Nombre del link"
+                value={r.label}
+                onChange={e => setResource(i, "label", e.target.value)}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <input
+                placeholder="https://..."
+                value={r.url}
+                onChange={e => setResource(i, "url", e.target.value)}
+                style={{ ...inputStyle, flex: 2 }}
+              />
+              <button
+                onClick={() => removeResource(i)}
+                style={{ background: "none", border: "none", color: "#6b7280", fontSize: 18, cursor: "pointer", flexShrink: 0, padding: "0 4px", lineHeight: 1 }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
           <div>
             <div style={{ fontSize: 12, color: "#9ca3af", marginBottom: 5 }}>Categoría</div>
@@ -526,7 +682,7 @@ function EditModal({ tool, onClose, onSave }) {
               onChange={e => set("category", e.target.value)}
               style={inputStyle}
             >
-              {["Onboarding", "Analytics", "Operaciones", "Producto", "Ventas"].map(c => (
+              {TOOL_CATEGORIES.map(c => (
                 <option key={c}>{c}</option>
               ))}
             </select>
