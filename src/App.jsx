@@ -947,7 +947,8 @@ export default function App() {
   const [authError, setAuthError] = useState(null);
   const [loginLoading, setLoginLoading] = useState(false);
 
-  const [tools, setTools] = useState(INITIAL_TOOLS);
+  const [tools, setTools] = useState([]);
+  const [toolsLoading, setToolsLoading] = useState(true);
   const [accessLogs, setAccessLogs] = useState([]);
   const [view, setView] = useState("hub");
   const [category, setCategory] = useState("Todos");
@@ -977,6 +978,25 @@ export default function App() {
     setAuthError(null);
   }, []);
 
+  const loadTools = useCallback(async () => {
+    setToolsLoading(true);
+    const { data, error } = await supabase
+      .from("tools")
+      .select("*")
+      .order("created_at", { ascending: true });
+    if (!error) setTools(data ?? []);
+    setToolsLoading(false);
+  }, []);
+
+  const loadAccessLogs = useCallback(async () => {
+    const { data } = await supabase
+      .from("tool_access_logs")
+      .select("*")
+      .order("accessed_at", { ascending: false })
+      .limit(200);
+    setAccessLogs(data ?? []);
+  }, []);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleSession(session);
@@ -988,6 +1008,13 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, [handleSession]);
+
+  useEffect(() => {
+    if (authState === "authenticated") {
+      loadTools();
+      loadAccessLogs();
+    }
+  }, [authState, loadTools, loadAccessLogs]);
 
   const handleLogin = async () => {
     setLoginLoading(true);
@@ -1012,29 +1039,39 @@ export default function App() {
     setAuthError(null);
   };
 
-  const logAccess = useCallback((tool) => {
+  const logAccess = useCallback(async (tool) => {
     if (!user) return;
-    const log = { tool_id: tool.id, user_email: user.email, accessed_at: new Date().toISOString() };
-    setAccessLogs(prev => [log, ...prev]);
-    setTools(prev =>
-      prev.map(t => t.id === tool.id ? { ...t, accesses: (t.accesses ?? 0) + 1 } : t)
-    );
+    const newCount = (tool.accesses ?? 0) + 1;
+    // Optimistic update
+    setTools(prev => prev.map(t => t.id === tool.id ? { ...t, accesses: newCount } : t));
+    setAccessLogs(prev => [
+      { tool_id: tool.id, user_email: user.email, accessed_at: new Date().toISOString() },
+      ...prev,
+    ]);
+    await Promise.all([
+      supabase.from("tool_access_logs").insert({ tool_id: tool.id, user_email: user.email }),
+      supabase.from("tools").update({ accesses: newCount }).eq("id", tool.id),
+    ]);
   }, [user]);
 
-  const handleSave = (form) => {
+  const handleSave = async (form) => {
     if (form.id) {
-      setTools(prev => prev.map(t => t.id === form.id ? { ...form, accesses: t.accesses } : t));
+      const { id, accesses, ...fields } = form;
+      await supabase.from("tools").update(fields).eq("id", id);
     } else {
-      setTools(prev => [
-        ...prev,
-        { ...form, id: Date.now(), accesses: 0, created_at: new Date().toISOString().slice(0, 10) },
-      ]);
+      await supabase.from("tools").insert({
+        ...form,
+        accesses: 0,
+        created_at: new Date().toISOString().slice(0, 10),
+      });
     }
+    await loadTools();
     setEditTool(null);
     setShowNewTool(false);
   };
 
-  const handleArchive = (tool) => {
+  const handleArchive = async (tool) => {
+    await supabase.from("tools").update({ status: "deprecated" }).eq("id", tool.id);
     setTools(prev => prev.map(t => t.id === tool.id ? { ...t, status: "deprecated" } : t));
   };
 
@@ -1165,7 +1202,12 @@ export default function App() {
               ))}
             </div>
 
-            {filtered.length === 0 ? (
+            {toolsLoading ? (
+              <div style={{ textAlign: "center", padding: "80px 0", color: "#4b5563" }}>
+                <div style={{ fontSize: 28, color: "#6366f1", marginBottom: 12 }}>◆</div>
+                <div style={{ fontSize: 14 }}>Cargando herramientas...</div>
+              </div>
+            ) : filtered.length === 0 ? (
               <div style={{ textAlign: "center", padding: "80px 0", color: "#4b5563" }}>
                 <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
                 <div style={{ fontSize: 15 }}>No se encontraron herramientas</div>
